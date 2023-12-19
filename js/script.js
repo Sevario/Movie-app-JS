@@ -15,6 +15,7 @@ function imageUrlBack(filep) {
 }
 
 async function displayPopularMovies() {
+    
     const {results} = await fetchData('movie/popular')
     const grid = document.getElementById('popular-movies');
     results.forEach(movie => {
@@ -38,6 +39,54 @@ async function displayPopularMovies() {
         grid.appendChild(card);
     });   
 }
+function getArgumentsFromURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const args = {};
+    for (const [key, value] of urlParams) {
+        args[key] = value;
+    }
+    return args;
+}
+
+
+async function displaySearchedMovies() {
+    const args = getArgumentsFromURL();
+    const type = args.type;
+    const searchterm = args['search-term'];
+    const currentPage = args.page;
+    const {results} = await fetchSearchData(`search/${type}?query=${searchterm}&page=${currentPage}`)
+    const {total_pages} = await fetchSearchData(`search/${type}?query=${searchterm}&page=${currentPage}`)
+    const {page} = await fetchSearchData(`search/${type}?query=${searchterm}&page=${currentPage}`)
+    console.log(results);
+    const grid = document.getElementById('search-results');
+    if(searchterm == '') {
+        grid.appendChild(document.createElement('h2')).innerHTML = `Invalid search term or no results found`;
+    }
+    results.forEach(movie => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.innerHTML = `
+          <a href="movie-details.html?id=${movie.id}">
+            <img
+              src="${imageUrl(movie.poster_path) != 'https://image.tmdb.org/t/p/w500/null' ? imageUrl(movie.poster_path) : '../images/no-image.jpg'}"
+              class="card-img-top"
+              alt="${movie.title ? movie.title : movie.name}"
+            />
+          </a>
+          <div class="card-body">
+            <h5 class="card-title">${movie.title ? movie.title : movie.name}</h5>
+            <p class="card-text">
+              <small class="text-muted">Release: ${movie.release_date}</small>
+            </p>
+          </div>
+        `;
+        grid.appendChild(card);
+        document.querySelector('.page-counter').innerHTML = `${page} of ${total_pages}`;
+        if(type == "tv") {
+            document.getElementById('tv').setAttribute('checked', 'checked');
+        }
+    });   
+}
 
 async function displayPopularTVShows() {
     const {results} = await fetchData('tv/popular')
@@ -50,11 +99,11 @@ async function displayPopularTVShows() {
             <img
                 src="${imageUrl(show.poster_path) ? imageUrl(show.poster_path) : '../images/no-image.jpg'}"
               class="card-img-top"
-              alt="${show.title}"
+              alt="${show.name}"
             />
           </a>
           <div class="card-body">
-          <h5 class="card-title">${show.title}</h5>
+          <h5 class="card-title">${show.name}</h5>
             <p class="card-text">
             <small class="text-muted">Release: ${show.first_air_date}</small>
             </p>
@@ -64,7 +113,25 @@ async function displayPopularTVShows() {
     });
     
 }
+async function pagination() {
+    const nextBtn = document.querySelector('#next');
+    const prevBtn = document.querySelector('#prev');
 
+    nextBtn.addEventListener('click', () => {
+        const args = getArgumentsFromURL();
+        const type = args.type;
+        const searchterm = args['search-term'];
+        const page = args.page;
+        window.location.href = `search.html?type=${type}&search-term=${searchterm}&page=${parseInt(page)+1}`;
+    });
+    prevBtn.addEventListener('click', () => {
+        const args = getArgumentsFromURL();
+        const type = args.type;
+        const searchterm = args['search-term'];
+        const page = args.page;
+        window.location.href = `search.html?type=${type}&search-term=${searchterm}&page=${parseInt(page)-1}`;
+    });
+}
 async function displayTVshowDetails() {
     const movieID = new URLSearchParams(window.location.search).get('id');
     let moneyFormatter = new Intl.NumberFormat();
@@ -210,6 +277,20 @@ async function fetchData(endpoint) {
     return data;
 }
 
+//Fetch data from TMDB API
+async function fetchSearchData(endpoint) {
+    document.querySelector('.spinner').classList.add('show');
+    const API_KEY = '78fb183b10a53073c151977cb08cc1c6';
+    const API_URL = "https://api.themoviedb.org/3/";
+
+    const response = await fetch(`${API_URL}${endpoint}&api_key=${API_KEY}&language=en-US`);
+
+    const data = await response.json();
+
+    document.querySelector('.spinner').classList.remove('show');
+    return data;
+}
+
 //Highlight active link
 function highlightActiveLink() {
     const allLinks = document.querySelectorAll('.nav-link');
@@ -280,6 +361,8 @@ function init() {
             displayTVshowDetails();
         break;
         case '/search.html':
+            displaySearchedMovies();
+            pagination();
         break;
     }
     highlightActiveLink();
